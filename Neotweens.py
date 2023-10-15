@@ -30,11 +30,17 @@ def multiplyColor(color:ColorTuple, multiplyBy:float)->ColorTuple:
   return createClampedColor(color.r * multiplyBy, color.g * multiplyBy, color.b * multiplyBy, color.w * multiplyBy)
 
 class NeoPixelGroup:
-  _strands: [NeoPixel] = []
-  _indices: [int] = []
+  _strands: [NeoPixel]
+  _indices: [int]
+  name:str
   # TODO _offsets: [float] = []
 
   __slots__ = "_strands", "_indices", "add", "get", "write", "fill"
+
+  def __init__(self, name:str):
+    self.name = name
+    self._strands = []
+    self._indices = []
 
   def __iter__(self):
     for i in range(len(self._strands)):
@@ -52,12 +58,15 @@ class NeoPixelGroup:
     return [self._strands[index], self._indices[index]]
 
   def write(self, index:int, color:ColorTuple) -> None:
-    [strand,strandIndex] = self[index]
+    (strand,strandIndex) = self[index]
     strand[strandIndex] = color
 
   def fill(self, color:ColorTuple) -> None:
-    for item in self:
-      [strand, index] = item
+    # print(self.name)
+    for i in range(len(self)):
+      strand = self._strands[i]
+      index = self._indices[i]
+      # print(index)
       strand[index] = color
   
   def showAll(self)->None:
@@ -70,7 +79,7 @@ class NeoPixelGroup:
 #   WHITE=auto()
 
 class NeoTween:
-  groups:[NeoPixelGroup] = []
+  groups:[NeoPixelGroup]
   # enabledColors:ColorChannel = ColorChannel.RED | ColorChannel.BLUE | ColorChannel.GREEN | ColorChannel.WHITE
   fromColor:ColorTuple
   toColor:ColorTuple
@@ -78,6 +87,7 @@ class NeoTween:
   __slots__ = "groups", "fromColor", "toColor", "add", "getColor", "setProgress"
 
   def __init__ (self, fromColor:ColorTuple, toColor:ColorTuple):
+    self.groups = []
     self.fromColor = fromColor
     self.toColor = toColor
 
