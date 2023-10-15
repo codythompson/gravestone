@@ -11,14 +11,13 @@ def clamp(minVal:int, maxVal:int, value:int)->int:
 def clampRGB(value:int)->int:
   return clamp(0, 255, value)
 
-# def clampW(value:float)->float:
-#   # return clamp(0, 1, value)
-#   return clamp(0, 1, value)
+def clampW(value:float)->float:
+  return clamp(0, 1, value)
 
-# def createClampedColor(r:int, g:int, b:int, w:float)->ColorTuple:
-def createClampedColor(r:int, g:int, b:int, w:int)->ColorTuple:
-  # return ColorTuple(clampRGB(r), clampRGB(g), clampRGB(b), clampW(w))
-  return ColorTuple(clampRGB(r), clampRGB(g), clampRGB(b), clampRGB(w))
+def createClampedColor(r:int, g:int, b:int, w:float)->ColorTuple:
+  if (w > 2 or w < -1):
+    print("warning: received white value more than 2x the min or max value. expected 0.0-1.0, got", w)
+  return ColorTuple(clampRGB(r), clampRGB(g), clampRGB(b), clampW(w))
 
 def addColors(a:ColorTuple, b:ColorTuple)->ColorTuple:
   return createClampedColor(a.r + b.r, a.g + b.g, a.b + b.b, a.w + b.w)
@@ -33,33 +32,44 @@ class NeoPixelGroup:
   _strands: [NeoPixel]
   _indices: [int]
   name:str
-  # TODO _offsets: [float] = []
+  _offsets: [float]
 
-  __slots__ = "_strands", "_indices", "add", "get", "write", "fill"
+  __slots__ = "_strands", "_indices", "_offsets", "add", "get", "set", "fill", "showAll", "getLocalProgress"
 
   def __init__(self, name:str):
     self.name = name
     self._strands = []
     self._indices = []
+    self._offsets = []
 
   def __iter__(self):
     for i in range(len(self._strands)):
-      yield (self._strands[i], self._indices[i])
+      yield (self._strands[i], self._indices[i], self._offsets[i])
 
   def __len__(self):
     return len(self._strands)
 
-  def add(self, strand:NeoPixel, index:int) -> int:
+  def add(self, strand:NeoPixel, index:int, offsetFromPrevious:float=0) -> int:
+    previousOffset = 0
+    if (len(self) > 0):
+      # we store the cumulative offset so we don't have to re-calculate ever time we set the color
+      previousOffset = self.get(len(self._offsets)-1)[2]
     self._strands.append(strand)
     self._indices.append(index)
+    self._offsets.append(previousOffset+offsetFromPrevious)
+
     return len(self._strands)-1
 
-  def get(self, index)->tuple[NeoPixel,int]:
-    return [self._strands[index], self._indices[index]]
+  def get(self, index)->tuple(NeoPixel,int,float):
+    return (self._strands[index], self._indices[index], self._offsets[index])
 
-  def write(self, index:int, color:ColorTuple) -> None:
-    (strand,strandIndex) = self[index]
+  def set(self, index:int, color:ColorTuple) -> None:
+    (strand,strandIndex,unused) = self.get(index)
     strand[strandIndex] = color
+
+  def getLocalProgress(self, index:int, tweenProgress:float)->float:
+    offset = self.get(index)[2]
+    return tweenProgress - offset
 
   def fill(self, color:ColorTuple) -> None:
     # print(self.name)
@@ -79,17 +89,31 @@ class NeoPixelGroup:
 #   WHITE=auto()
 
 class NeoTween:
+  name:str
   groups:[NeoPixelGroup]
   # enabledColors:ColorChannel = ColorChannel.RED | ColorChannel.BLUE | ColorChannel.GREEN | ColorChannel.WHITE
   fromColor:ColorTuple
   toColor:ColorTuple
+  duration:int
+  delay:int = 0
 
-  __slots__ = "groups", "fromColor", "toColor", "add", "getColor", "setProgress"
+  __slots__ = "groups", "name", "fromColor", "toColor", "duration", "delay", "add", "getColor", "setProgress"
 
-  def __init__ (self, fromColor:ColorTuple, toColor:ColorTuple):
-    self.groups = []
-    self.fromColor = fromColor
-    self.toColor = toColor
+  def __init__ (
+      self,
+      *,
+      name="anon",
+      fromColor:ColorTuple,
+      toColor:ColorTuple,
+      duration:int,
+      delay:int = 0
+    ):
+      self.name = name
+      self.groups = []
+      self.fromColor = fromColor
+      self.toColor = toColor
+      self.duration = duration
+      self.delay = delay
 
   def add(self, group:NeoPixelGroup)->int:
     self.groups.append(group)
@@ -101,17 +125,7 @@ class NeoTween:
     return addColors(self.fromColor, multiplyColor(subtractColors(self.toColor, self.fromColor), progress))
 
   def setProgress(self, progress:float)->None:
-    newColor = self.getColor(progress)
-    [group.fill(newColor) for group in self.groups]
-    # [group.fill()]
-
-class NeoTweens:
-  """
-  TODO - implement this 
-    - need to handle the notion of intra-group pixel offsets
-      - pixels later in the chain will finish the tween AFTER pixels earlier in the chain.
-      - does NeoTween simply get sent progresses greater (or less than) 1?
-        - I think so - each NeoTween has an offset itself, and parent sends progress values through the whole sequence. The values will be negative and greater than one.
-  """
-  def __init__():
-    print("hmmmm")
+    for group in self.groups:
+      for i in range(len(group)):
+        localProgress = group.getLocalProgress(i, progress) % 1 # TODO - put the mod1 rolover behind a setting flag
+        group.set(i, self.getColor(localProgress))

@@ -12,15 +12,25 @@ strand1.brightness = 0.1
 
 groupA = NeoPixelGroup("grpA")
 groupA.add(board_pixel, 0)
-groupA.add(strand1, 0)
 groupB = NeoPixelGroup("grpB")
-groupB.add(strand1, 1)
-# groupB.add(strand1, 2)
-groupB.add(strand1, 3)
+groupB.add(strand1, 0, 0.00)
+groupB.add(strand1, 1, 0.05)
+groupB.add(strand1, 2, 0.05)
+groupB.add(strand1, 3, 0.05)
 
-tweenA = NeoTween(ColorTuple(255, 0, 255, 0), ColorTuple(255, 100, 100, 0))
+tweenA = NeoTween(
+  name="tweenA",
+  fromColor=ColorTuple(100, 100, 255, 0),
+  toColor=ColorTuple(255, 0, 0, 0),
+  duration=5
+)
 tweenA.add(groupA)
-tweenB = NeoTween(ColorTuple(0, 0, 255, 0), ColorTuple(100, 100, 100, 0))
+tweenB = NeoTween(
+  name="tweenB",
+  fromColor=ColorTuple(255, 0, 0, 0),
+  toColor=ColorTuple(0, 255, 0, 2.1),
+  duration=1
+)
 tweenB.add(groupB)
 
 last_change = time.monotonic()
