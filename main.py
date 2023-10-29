@@ -7,69 +7,32 @@ from Neotweens import ColorTuple, NeoPixelGroup, NeoTween, NeoTweenRoutine, NeoT
 board_pixel = neopixel.NeoPixel(board.NEOPIXEL, 1)
 board_pixel.brightness = 0.08
 
-strand1 = neopixel.NeoPixel(board.A0, 8, pixel_order="GRBW")
-strand1.brightness = 0.08
+strand1Len = 25
+strand1 = neopixel.NeoPixel(board.A0, strand1Len, pixel_order="GRBW")
+strand1.brightness = 1
 
-# groupA = NeoPixelGroup("grpA")
-# groupA.add(board_pixel, 0)
-# groupA.add(strand1, 0)
-groupB = NeoPixelGroup("grpB")
-# groupB.add(strand1, 0, 0.00)
+strand2Len = 41
+strand2 = neopixel.NeoPixel(board.A1, strand2Len)
+strand2.brightness = 0.5
+
+hangsLen = 13
+hereLen = 12
+hangsGroup = NeoPixelGroup("hangs")
 offset=0.2
-for i in range(8):
-  groupB.add(strand1, i, (i*offset)%1)
-
-# tweenA = NeoTween(
-#   name="tweenA",
-#   fromColor=ColorTuple(100, 100, 255, 0),
-#   toColor=ColorTuple(255, 0, 0, 0),
-#   duration=1.5
-# )
-# tweenA.add(groupA)
-# tweenB = NeoTween(
-#   name="tweenB",
-#   fromColor=ColorTuple(100, 100, 255, 0),
-#   toColor=ColorTuple(0, 255, 0, 0.0),
-#   duration=0.5,
-#   delay=4
-# )
-# tweenB.add(groupB)
-# tweenB2 = NeoTween(
-#   name="tweenB2",
-#   fromColor=ColorTuple(0, 255, 0, 0.0),
-#   toColor=ColorTuple(0, 255, 0, 0.0),
-#   duration=2,
-#   delay=0.5
-# )
-# tweenB2.add(groupB)
-# tweenC = NeoTween(
-#   name="tweenC",
-#   fromColor=ColorTuple(0, 255, 0, 0.0),
-#   toColor=ColorTuple(100, 100, 255, 0),
-#   duration=0.5,
-#   delay=8.5
-# )
-# tweenC.add(groupB)
-# tweenC2 = NeoTween(
-#   name="tweenC2",
-#   fromColor=ColorTuple(100, 100, 255, 0),
-#   toColor=ColorTuple(100, 100, 255, 0),
-#   duration=1,
-#   delay=5
-# )
-# tweenC2.add(groupB)
-
-# routine1 = NeoTweenRoutine("routine1")
-# routine1.tweens.append(tweenA)
-# routine1.tweens.append(tweenB)
-# routine1.tweens.append(tweenB2)
-# routine1.tweens.append(tweenC)
-# routine1.tweens.append(tweenC2)
-# routine1.start()
+for i in range(hangsLen):
+  hangsGroup.add(strand1, i, (hangsLen-i-1)*offset)
+hereGroup = NeoPixelGroup("here")
+for i in range(hereLen):
+  hereGroup.add(strand1, i+hangsLen, (hangsLen-1*offset) + i*offset)
+nooseGroup = NeoPixelGroup("noose")
+offset=0.1
+for i in range(strand2Len/2):
+  nooseGroup.add(strand2, i, i*offset)
+  nooseGroup.add(strand2, strand2Len-1-i, i*offset)
 
 m1 = NeoTweenRoutineMachine(
    name="routine1",
-   groups=[groupB],
+   groups=[hangsGroup, hereGroup,nooseGroup],
    initialColor=ColorTuple(0, 0, 255, 0)
 )
 m1.delayedBy(1)
@@ -84,8 +47,12 @@ m1.then(name="toGreen")
 m1.delayedBy(1)
 m1.toColor(0,100,0,0.0)
 
+m1.then(name="toBlack")
+m1.delayedBy(0.5)
+m1.toColor(0,0,0,0.0)
+
 m1.then(name="toCyan")
-m1.delayedBy(1)
+m1.delayedBy(2)
 m1.toColor(0,100,100,0.5)
 
 m1.then(name="toBlue")
