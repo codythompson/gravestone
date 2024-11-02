@@ -2,12 +2,12 @@
 import time
 import board
 import neopixel
-from Neotweens import ColorTuple, NeoPixelGroup, NeoTween, NeoTweenRoutine, NeoTweenRoutineMachine
+from Neotweens import ColorTuple, NeoPixelGroup, NeoTweenRoutineMachine
 
 board_pixel = neopixel.NeoPixel(board.NEOPIXEL, 1)
 board_pixel.brightness = 0.08
 
-strand1Len = 25
+strand1Len = 26
 strand1 = neopixel.NeoPixel(board.A0, strand1Len, pixel_order="GRBW")
 strand1.brightness = 1
 
@@ -16,14 +16,14 @@ strand2 = neopixel.NeoPixel(board.A1, strand2Len)
 strand2.brightness = 0.5
 
 hangsLen = 13
-hereLen = 12
+hereLen = 13
 hangsGroup = NeoPixelGroup("hangs")
 offset=0.2
 for i in range(hangsLen):
   hangsGroup.add(strand1, i, (hangsLen-i-1)*offset)
 hereGroup = NeoPixelGroup("here")
 for i in range(hereLen):
-  hereGroup.add(strand1, i+hangsLen, (hangsLen-1*offset) + i*offset)
+  hereGroup.add(strand1, i+hangsLen, (hereLen-1*offset) + i*offset)
 nooseGroup = NeoPixelGroup("noose")
 offset=0.1
 for i in range(strand2Len/2):
