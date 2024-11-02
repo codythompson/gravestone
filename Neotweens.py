@@ -30,10 +30,10 @@ def multiplyColor(color:ColorTuple, multiplyBy:float)->ColorTuple:
   return ColorTuple(color.r * multiplyBy, color.g * multiplyBy, color.b * multiplyBy, color.w * multiplyBy)
 
 class NeoPixelGroup:
-  _strands: [NeoPixel]
-  _indices: [int]
+  _strands: list[NeoPixel]
+  _indices: list[int]
   name:str
-  _offsets: [float]
+  _offsets: list[float]
 
   __slots__ = "_strands", "_indices", "_offsets", "add", "get", "set", "fill", "showAll", "getLocalProgress"
 
@@ -57,7 +57,7 @@ class NeoPixelGroup:
 
     return len(self._strands)-1
 
-  def get(self, index)->tuple(NeoPixel,int,float):
+  def get(self, index)->tuple[NeoPixel,int,float]:
     return (self._strands[index], self._indices[index], self._offsets[index])
 
   def set(self, index:int, color:ColorTuple) -> None:
@@ -88,7 +88,7 @@ class NeoPixelGroup:
 
 class NeoTween:
   name:str
-  groups:[NeoPixelGroup]
+  groups:list[NeoPixelGroup]
   # enabledColors:ColorChannel = ColorChannel.RED | ColorChannel.BLUE | ColorChannel.GREEN | ColorChannel.WHITE
   fromColor:ColorTuple
   toColor:ColorTuple
@@ -105,7 +105,7 @@ class NeoTween:
       toColor:ColorTuple,
       duration:int,
       delay:int = 0,
-      groups:[NeoPixel] = []
+      groups:list[NeoPixel] = []
     ):
       self.name = name
       self.groups = groups
@@ -139,7 +139,7 @@ class NeoTween:
 
 class NeoTweenRoutine:
   name:str
-  tweens:[NeoTween]
+  tweens:list[NeoTween]
   _startedAt:float
 
   def __init__(self, name:str):
@@ -168,9 +168,9 @@ class NeoTweenRoutine:
     [self.updateTween(tween, delta) for tween in self.tweens]
 
 class NeoTweenRoutineMachine:
-  groups:[NeoPixelGroup]
+  groups:list[NeoPixelGroup]
   routine:NeoTweenRoutine
-  relativeDelays:[float]
+  relativeDelays:list[float]
 
   def __init__(self,*, name:str, groups:NeoPixelGroup, initialColor:ColorTuple, duration:float=1.0, delay:float=0.0):
     self.groups = groups
@@ -181,7 +181,7 @@ class NeoTweenRoutineMachine:
   def getNextTweenName(self)->str:
     return str.format("{}-{}", self.routine.name, len(self.routine.tweens))
 
-  def add(self, *, fromColor:ColorTuple, toColor:ColorTuple, duration:float, delay:float=0.0, name:str=None):
+  def add(self, *, fromColor:ColorTuple, toColor:ColorTuple, duration:float, delay:float=0.0, name:str|None=None):
     if name == None:
       name = self.getNextTweenName()
     self.routine.tweens.append(NeoTween(
@@ -197,7 +197,7 @@ class NeoTweenRoutineMachine:
   def getLastTween(self)->NeoTween:
     return self.routine.tweens[len(self.routine.tweens)-1]
 
-  def calculateStartElapsedTime(self, index:int=None)->float:
+  def calculateStartElapsedTime(self, index:int|None=None)->float:
     if index == None:
       index = len(self.relativeDelays)-1
     if index < 0:
