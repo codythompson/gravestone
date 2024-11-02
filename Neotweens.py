@@ -5,7 +5,7 @@ from neopixel import NeoPixel
 ColorTuple = namedtuple("ColorTuple", ["r", "g", "b", "w"])
 
 # def clamp(minVal:float, maxVal:float, value:float)->float:
-def clamp(minVal:int, maxVal:int, value:int)->int:
+def clamp(minVal:int|float, maxVal:int|float, value:int|float)->int|float:
   return max(minVal, min(maxVal, value))
 
 def clampRGB(value:int)->int:
@@ -35,7 +35,7 @@ class NeoPixelGroup:
   name:str
   _offsets: list[float]
 
-  __slots__ = "_strands", "_indices", "_offsets", "add", "get", "set", "fill", "showAll", "getLocalProgress"
+  __slots__ = "_strands", "_indices", "_offsets", "name"
 
   def __init__(self, name:str):
     self.name = name
@@ -61,7 +61,7 @@ class NeoPixelGroup:
     return (self._strands[index], self._indices[index], self._offsets[index])
 
   def set(self, index:int, color:ColorTuple) -> None:
-    (strand,strandIndex,unused) = self.get(index)
+    (strand,strandIndex,_) = self.get(index)
     strand[strandIndex] = color
 
   def getMaxOffset(self)->float:
@@ -86,6 +86,7 @@ class NeoPixelGroup:
 #   BLUE=auto()
 #   WHITE=auto()
 
+
 class NeoTween:
   name:str
   groups:list[NeoPixelGroup]
@@ -95,7 +96,9 @@ class NeoTween:
   duration:int
   delay:int
 
-  __slots__ = "groups", "name", "fromColor", "toColor", "duration", "delay", "add", "getColor", "setProgress"
+  _maxed_out:list[list[bool]]
+
+  __slots__ = "name", "groups", "fromColor", "toColor", "duration", "delay", "_maxed_out"
 
   def __init__ (
       self,
@@ -105,7 +108,7 @@ class NeoTween:
       toColor:ColorTuple,
       duration:int,
       delay:int = 0,
-      groups:list[NeoPixel] = []
+      groups:list[NeoPixelGroup] = []
     ):
       self.name = name
       self.groups = groups
@@ -113,6 +116,7 @@ class NeoTween:
       self.toColor = toColor
       self.duration = duration
       self.delay = delay
+      self._maxed_out = [[False for _ in group] for group in self.groups]
 
   def getMaxOffset(self)->float:
     return max(group.getMaxOffset() for group in self.groups)
@@ -125,17 +129,34 @@ class NeoTween:
     return len(self.groups)
 
   def getColor(self, progress:float)->ColorTuple:
-    # TODO - variable easing funcs
+    # FUTURE-TODO - variable easing funcs
     # linear scaling: from + progress*(from-to)
     return clampColor(addColors(self.fromColor, multiplyColor(subtractColors(self.toColor, self.fromColor), progress)))
 
   def setProgress(self, progress:float)->None:
-    for group in self.groups:
+    for group_index,group in enumerate(self.groups):
       for i in range(len(group)):
         localProgress = group.getLocalProgress(i, progress)
-        if localProgress >= 0 and localProgress <= 1:
-          group.set(i, self.getColor(localProgress))
+        clamped_progress = clamp(0,1,localProgress)
+        # clamped_progress = min(1,localProgress)
+        already_maxed_out = self._maxed_out[group_index][i]
+        if not already_maxed_out:
+          group.set(i, self.getColor(min(1,localProgress)))
+          # print(self.name, group_index, i)
+          # if localProgress < 0:
+          #   print("!!!!!!!!!!!!!!!!!!")
+          #   print("NEW MIN OUT", self.name, group_index, i, progress, localProgress)
+          #   print("!!!!!!!!!!!!!!!!!!")
+        self._maxed_out[group_index][i] = clamped_progress != localProgress
         # future todo: if self.doWraparound and localProgress < 0: localProgress = 1 + localProgress
+
+  def debug_dump(self, samples:int=2)->str:
+    samples_str:list[str] = []
+    for i in range(samples):
+      progress = i/(samples-1)
+      (r,g,b,a) = self.getColor(progress)
+      samples_str.append(f"{round(progress*100, 1)}%: {r},{g},{b},{a}")
+    return f"~~~\ntween: {self.name}, delay:{self.delay}, duration:{self.duration} reldur:{self.getDurationWithDelayAndOffsets()}\nsamples: ({"->".join(samples_str)})"
 
 class NeoTweenRoutine:
   name:str
@@ -151,7 +172,7 @@ class NeoTweenRoutine:
     self._startedAt = time.monotonic()
 
   def getDuration(self)->float:
-    return max(thingy.getDurationWithDelayAndOffsets() for thingy in self.tweens)
+    return max(tween.getDurationWithDelayAndOffsets() for tween in self.tweens)
 
   def updateTween(self, tween:NeoTween, delta:float)->None:
     progress = (delta - tween.delay) / tween.duration
@@ -164,8 +185,16 @@ class NeoTweenRoutine:
 
     duration = self.getDuration()
     delta = (now - self._startedAt) % duration
-    # TODO - does this work? / test it
+
+    # TODO - start here!
+    # some group items get set twich - probably need to send a flag along the lines
+    # of - only max out if this flag isn't set.
     [self.updateTween(tween, delta) for tween in self.tweens]
+
+  def debug_dump(self, samples=2)->str:
+    tween_strs = [tween.debug_dump(samples) for tween in self.tweens]
+    return f"===========\nroutine-bldr-dump: {self.name}\nduration: {self.getDuration()}\n---------\n{"\n---------\n".join(tween_strs)}"
+
 
 class NeoTweenRoutineMachine:
   groups:list[NeoPixelGroup]
@@ -184,15 +213,16 @@ class NeoTweenRoutineMachine:
   def add(self, *, fromColor:ColorTuple, toColor:ColorTuple, duration:float, delay:float=0.0, name:str|None=None):
     if name == None:
       name = self.getNextTweenName()
-    self.routine.tweens.append(NeoTween(
+    newTween = NeoTween(
       name=name,
       toColor=toColor,
       fromColor=fromColor,
       duration=duration,
       groups=self.groups
-    ))
+    )
+    self.routine.tweens.append(newTween)
     self.relativeDelays.append(delay)
-    self.getLastTween().delay = self.calculateStartElapsedTime()
+    newTween.delay = self.calculateStartElapsedTime()
 
   def getLastTween(self)->NeoTween:
     return self.routine.tweens[len(self.routine.tweens)-1]
@@ -223,11 +253,11 @@ class NeoTweenRoutineMachine:
     self.getLastTween().delay = self.calculateStartElapsedTime()
     return self
 
-  def then(self, *, fromColor=None, toColor=None, duration:float=None, delay:float=0.0, name:str=None):
+  def then(self, *, fromColor=None, toColor=None, duration:float|None=None, delay:float=0.0, name:str|None=None):
     current = self.getLastTween()
 
     if fromColor == None:
-      fromColor = current.fromColor
+      fromColor = current.toColor
     if toColor == None:
       toColor = fromColor
     if duration == None:
