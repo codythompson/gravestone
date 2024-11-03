@@ -57,6 +57,11 @@ class NeoPixelGroup:
 
     return len(self._strands)-1
 
+  def addRange(self, strand:NeoPixel, count:int, *, start_index:int=0, index_stride:int=1, start_offset:float=0.0, offset_delta:float=0.0) -> None:
+    for i in range(count):
+      index = start_index + (index_stride*i)
+      self.add(strand,index,start_offset + (offset_delta*i))
+
   def get(self, index)->tuple[NeoPixel,int,float]:
     return (self._strands[index], self._indices[index], self._offsets[index])
 
@@ -79,6 +84,14 @@ class NeoPixelGroup:
   
   def showAll(self)->None:
     [strand.show() for strand in self._strands]
+
+  def debug_dump(self)->str:
+    lines:list[str] = []
+    for i in range(len(self)):
+      strand,index,offset = self.get(i)
+      lines.append(f"{i}:: strand:{id(strand)} index:{index} offset:{offset}")
+    return f"~~~\nstrand - {self.name}\n{"\n".join(lines)}"
+
 
 # class ColorChannel(Flag):
 #   RED=auto()
