@@ -181,10 +181,14 @@ class NeoTweenRoutine:
   name:str
   tweens:list[NeoTween]
   _startedAt:float
+  loops_left:int = 0
+  next_routine:NeoTweenRoutine|None = None # type: ignore
+  prev_routine:NeoTweenRoutine|None = None # type: ignore
+
   # FUTURE FEATURE TODO:
   # rename this to NeoTweenSequence, and make a new NeoTweenRoutine class that handles multiple NeoTweenSequences
 
-  __slots__ = "name","tweens","_startedAt"
+  __slots__ = "name","tweens","_startedAt","next_routine","prev_routine"
 
   def __init__(self, name:str):
     self.name = name
@@ -198,14 +202,14 @@ class NeoTweenRoutine:
   def getDuration(self)->float:
     return max(tween.getDurationWithDelayAndOffsets() for tween in self.tweens)
 
-  def updateTween(self, tween:NeoTween, delta:float)->None:
+  def updateTween(self, tween:NeoTween, delta:float)->None|NeoTweenRoutine: # type: ignore
     progress = (delta - tween.delay) / tween.duration
     tween.setProgress(progress)
 
-  def update(self)->None:
+  def update(self)->None|NeoTweenRoutine: # type: ignore
     now = time.monotonic()
     if self._startedAt == None:
-      return
+      return None
 
     duration = self.getDuration()
     delta = now - self._startedAt
@@ -214,7 +218,21 @@ class NeoTweenRoutine:
     [self.updateTween(tween, delta) for tween in self.tweens]
 
     if delta > duration:
-      self._startedAt += duration
+      curr_started_at = self._startedAt
+      self._startedAt = None
+      if self.loops_left > 0:
+        self.loops_left -= 1
+        self._startedAt = curr_started_at + duration
+      elif self.next_routine != None:
+        return self.next_routine
+      elif self.prev_routine != None:
+        curr_routine = self.prev_routine
+        while curr_routine.prev_routine != None:
+          curr_routine = curr_routine.prev_routine
+        return curr_routine
+      else:
+        print(f"{self.name} - End of routine")
+
 
   def debug_dump(self, samples=2)->str:
     tween_strs = [tween.debug_dump(samples) for tween in self.tweens]
@@ -226,7 +244,7 @@ class NeoTweenRoutineMachine:
   routine:NeoTweenRoutine
   relativeDelays:list[float]
 
-  def __init__(self,*, name:str, groups:NeoPixelGroup, initialColor:ColorTuple=ColorTuple(0,0,0,0.0), duration:float=1.0, delay:float=0.0):
+  def __init__(self,*, name:str, groups:list[NeoPixelGroup], initialColor:ColorTuple=ColorTuple(0,0,0,0.0), duration:float=1.0, delay:float=0.0):
     self.groups = groups
     self.routine = NeoTweenRoutine(name)
     self.relativeDelays=[]
@@ -293,6 +311,37 @@ class NeoTweenRoutineMachine:
     self.add(fromColor=fromColor, toColor=toColor, duration=duration, delay=delay, name=name)
     return self
 
-  def done(self)->NeoTweenRoutine:
-    return self.routine
+  def nextRoutine(self,*, name:str, groups:list[NeoPixelGroup]|None=None, initialColor:ColorTuple|None=None, duration:float=1.0, delay:float=0.0):
+    if initialColor == None:
+      if len(self.routine.tweens) > 0:
+        initialColor = self.routine.tweens[0].toColor
+      else:
+        initialColor = ColorTuple(0,0,0,0.0)
+    if groups == None:
+      groups = self.groups
+    new_factory = NeoTweenRoutineMachine(name=name,groups=groups,initialColor=initialColor,duration=duration,delay=delay)
+    self.routine.next_routine = new_factory.routine
+    new_factory.routine.prev_routine = self.routine
+    return new_factory
+
+  def oldest(self)->NeoTweenRoutine:
+    oldest = self.routine
+    while oldest.prev_routine != None:
+      oldest = oldest.prev_routine
+    return oldest
+
+  def start(self)->None:
+    self.routine = self.oldest()
+    self.routine.start()
+    last_change = time.monotonic()
+    while True:
+        now = time.monotonic()
+        # if now - last_change > 0.25:
+        if now - last_change > 0.1:
+            last_change = now
+            next_routine = self.routine.update()
+            if next_routine != None:
+              print("switching to next routine: ", next_routine.name)
+              self.routine = next_routine
+              next_routine.start()
 

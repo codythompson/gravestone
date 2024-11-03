@@ -20,35 +20,39 @@ hangsLen = 13
 hereLen = 13
 hangsGroup = NeoPixelGroup("hangs")
 offset=0.2
-# hangsGroup.addRange(
-#   strand1,
-#   hangsLen,
-#   start_index=hangsLen-1,
-#   index_stride=-1,
-#   offset_delta=offset
-# )
-# hereGroup = NeoPixelGroup("here")
-# hereGroup.addRange(
-#     strand1,
-#     hereLen,
-#     start_index=hangsLen,
-#     start_offset=offset*hangsLen,
-#     offset_delta=offset
-# )
-# nooseGroup = NeoPixelGroup("noose")
-# offset=0.1
-# nooseGroup.addRange(strand2, strand2Half+1, offset_delta=offset)
-# nooseGroup.addRange(
-#     strand2,
-#     strand2Half,
-#     start_index=strand2Len-1,
-#     index_stride=-1,
-#     start_offset=0.0,
-#     offset_delta=offset
-# )
+hangsGroup.addRange(
+  strand1,
+  hangsLen,
+  start_index=hangsLen-1,
+  index_stride=-1,
+  offset_delta=offset
+)
+hereGroup = NeoPixelGroup("here")
+hereGroup.addRange(
+    strand1,
+    hereLen,
+    start_index=hangsLen,
+    start_offset=offset*hangsLen,
+    offset_delta=offset
+)
+nooseGroup = NeoPixelGroup("noose")
+offset=0.1
+nooseGroup.addRange(strand2, strand2Half+1, offset_delta=offset)
+nooseGroup.addRange(
+    strand2,
+    strand2Half,
+    start_index=strand2Len-1,
+    index_stride=-1,
+    start_offset=0.0,
+    offset_delta=offset
+)
 # print(nooseGroup.debug_dump())
 
 all_down_group = NeoPixelGroup("all_down")
+# HERE
+all_down_group.add(strand1, [13,16,19,22], 0.55)
+all_down_group.add(strand1, [14,17,20,23], 0.75)
+all_down_group.add(strand1, [15,18,21,24], 0.95)
 # HANGS
 all_down_group.add(strand1, [2,3,7,9], 0.0)
 all_down_group.add(strand1, [1,4,8,11], 0.2)
@@ -72,10 +76,6 @@ all_down_group.addRange(
     offset_delta=noose_offset_delta,
     start_offset=noose_start_offset
 )
-# HERE
-all_down_group.add(strand1, [13,16,19,22], 0.55)
-all_down_group.add(strand1, [14,17,20,23], 0.75)
-all_down_group.add(strand1, [15,18,21,24], 0.95)
 # print(all_down_group.debug_dump())
 
 # m1 = NeoTweenRoutineMachine(
@@ -153,18 +153,29 @@ lightening.forDuration(0.25)
 lightening.toColor(0,0,0,0.0)
 lightening.delayedBy(0.25)
 
-routine1 = lightening.done()
+# clear it out just in case / hackfix
+lightening.then()
+lightening.forDuration(2)
+lightening.toColor(0,0,0,0.0)
 
-last_change = time.monotonic()
-# print(routine1.debug_dump())
-routine1.start()
+sparkle:NeoTweenRoutineMachine = lightening.nextRoutine(name="sparkle", groups=[nooseGroup])
+sparkle.toColor(100,0,50,0.0)
+sparkle.forDuration(1)
 
-while True:
-    now = time.monotonic()
-    # if now - last_change > 0.25:
-    if now - last_change > 0.1:
-        last_change = now
-        routine1.update()
+sparkle.then()
+sparkle.toColor(0,50,100,0.25)
+sparkle.forDuration(2)
+# sparkle.delayedBy(-1.9)
+
+sparkle.then()
+sparkle.toColor(0,0,0,0)
+sparkle.delayedBy(2)
+
+# unofficial way to loop back to beginning
+sparkle.routine.next_routine = lightening.routine
+
+sparkle.start()
+
 
 
 
