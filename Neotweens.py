@@ -6,7 +6,7 @@ ColorTuple = namedtuple("ColorTuple", ["r", "g", "b", "w"])
 
 # def clamp(minVal:float, maxVal:float, value:float)->float:
 def clamp(minVal:int|float, maxVal:int|float, value:int|float)->int|float:
-  return max(minVal, min(maxVal, value))
+  return max(minVal, min(value, maxVal))
 
 def clampRGB(value:int)->int:
   return clamp(0, 255, value)
@@ -141,12 +141,7 @@ class NeoTween:
         # clamped_progress = min(1,localProgress)
         already_maxed_out = self._maxed_out[group_index][i]
         if not already_maxed_out:
-          group.set(i, self.getColor(min(1,localProgress)))
-          # print(self.name, group_index, i)
-          # if localProgress < 0:
-          #   print("!!!!!!!!!!!!!!!!!!")
-          #   print("NEW MIN OUT", self.name, group_index, i, progress, localProgress)
-          #   print("!!!!!!!!!!!!!!!!!!")
+          group.set(i, self.getColor(clamped_progress))
         self._maxed_out[group_index][i] = clamped_progress != localProgress
         # future todo: if self.doWraparound and localProgress < 0: localProgress = 1 + localProgress
 
@@ -163,6 +158,8 @@ class NeoTweenRoutine:
   tweens:list[NeoTween]
   _startedAt:float
 
+  __slots__ = "name","tweens","_startedAt"
+
   def __init__(self, name:str):
     self.name = name
     self.tweens = []
@@ -170,6 +167,7 @@ class NeoTweenRoutine:
 
   def start(self):
     self._startedAt = time.monotonic()
+    self.update()
 
   def getDuration(self)->float:
     return max(tween.getDurationWithDelayAndOffsets() for tween in self.tweens)
@@ -184,12 +182,12 @@ class NeoTweenRoutine:
       return
 
     duration = self.getDuration()
-    delta = (now - self._startedAt) % duration
+    delta = now - self._startedAt
 
-    # TODO - start here!
-    # some group items get set twich - probably need to send a flag along the lines
-    # of - only max out if this flag isn't set.
     [self.updateTween(tween, delta) for tween in self.tweens]
+
+    if delta > duration:
+      self._startedAt += duration
 
   def debug_dump(self, samples=2)->str:
     tween_strs = [tween.debug_dump(samples) for tween in self.tweens]
@@ -252,6 +250,9 @@ class NeoTweenRoutineMachine:
     self.relativeDelays[len(self.relativeDelays)-1] = delay
     self.getLastTween().delay = self.calculateStartElapsedTime()
     return self
+
+  def named(self, name:str):
+    self.getLastTween().name = name
 
   def then(self, *, fromColor=None, toColor=None, duration:float|None=None, delay:float=0.0, name:str|None=None):
     current = self.getLastTween()
