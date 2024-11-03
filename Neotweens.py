@@ -50,10 +50,16 @@ class NeoPixelGroup:
   def __len__(self):
     return len(self._strands)
 
-  def add(self, strand:NeoPixel, index:int, offset:float=0) -> int:
-    self._strands.append(strand)
-    self._indices.append(index)
-    self._offsets.append(offset)
+  def add(self, strand:NeoPixel, index:int|list[int], offset:float=0) -> int:
+    index_list:list[int]
+    if isinstance(index, list):
+      index_list = index
+    else:
+      index_list = [index]
+    for i in index_list:
+      self._strands.append(strand)
+      self._indices.append(i)
+      self._offsets.append(offset)
 
     return len(self._strands)-1
 
@@ -220,7 +226,7 @@ class NeoTweenRoutineMachine:
   routine:NeoTweenRoutine
   relativeDelays:list[float]
 
-  def __init__(self,*, name:str, groups:NeoPixelGroup, initialColor:ColorTuple, duration:float=1.0, delay:float=0.0):
+  def __init__(self,*, name:str, groups:NeoPixelGroup, initialColor:ColorTuple=ColorTuple(0,0,0,0.0), duration:float=1.0, delay:float=0.0):
     self.groups = groups
     self.routine = NeoTweenRoutine(name)
     self.relativeDelays=[]
