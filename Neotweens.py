@@ -116,7 +116,7 @@ class NeoTween:
       self.toColor = toColor
       self.duration = duration
       self.delay = delay
-      self._maxed_out = [[False for _ in group] for group in self.groups]
+      self._maxed_out = [[True for _ in group] for group in self.groups]
 
   def getMaxOffset(self)->float:
     return max(group.getMaxOffset() for group in self.groups)
@@ -138,12 +138,17 @@ class NeoTween:
       for i in range(len(group)):
         localProgress = group.getLocalProgress(i, progress)
         clamped_progress = clamp(0,1,localProgress)
-        # clamped_progress = min(1,localProgress)
+        progress_in_bounds = localProgress == clamped_progress
         already_maxed_out = self._maxed_out[group_index][i]
-        if not already_maxed_out:
+        if progress_in_bounds or not already_maxed_out:
+          # if local_progress is between 0 and 1 OR the last update was between 0 and 1 - do an update
+          #     we need the OR not already_maxed_out to allow the progress to be set once, and only once,
+          #     after going below 0, or going passed 1
           group.set(i, self.getColor(clamped_progress))
+          # print(self.name, group_index, i, "local-progress:", round(localProgress,4), "-", clamped_progress)
+          # if clamped_progress != localProgress:
+          #   print(f"------------------ {self.name} {group_index}_{i} maxed -------------------")
         self._maxed_out[group_index][i] = clamped_progress != localProgress
-        # future todo: if self.doWraparound and localProgress < 0: localProgress = 1 + localProgress
 
   def debug_dump(self, samples:int=2)->str:
     samples_str:list[str] = []
@@ -184,6 +189,7 @@ class NeoTweenRoutine:
     duration = self.getDuration()
     delta = now - self._startedAt
 
+    # print(f"==tick==================================== {now - self._startedAt}%{duration}={delta} ")
     [self.updateTween(tween, delta) for tween in self.tweens]
 
     if delta > duration:
