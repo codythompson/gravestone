@@ -162,6 +162,8 @@ class NeoTweenRoutine:
   name:str
   tweens:list[NeoTween]
   _startedAt:float
+  # FUTURE FEATURE TODO:
+  # rename this to NeoTweenSequence, and make a new NeoTweenRoutine class that handles multiple NeoTweenSequences
 
   __slots__ = "name","tweens","_startedAt"
 
